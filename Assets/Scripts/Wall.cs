@@ -1,15 +1,20 @@
 using UnityEngine;
 
+/// <summary>
+/// Generates a curved wall segment with adjustable radius, thickness, and angle.
+/// </summary>
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
 [RequireComponent(typeof(PolygonCollider2D))]
 public class Wall : MonoBehaviour
 {
+    // ------------ unity stuff ------------
     [Header("Arc Settings")]
     [Min(0.01f)] public float radius = 2f;
     [Min(0.01f)] public float thickness = 0.5f;
-    [Range(1f, 360f)] public float angle = 90f;
-    [SerializeField, Range(3, 128)] private int smoothness = 32;
+    [Range(10f, 359f)] public float angle = 90f;
+    [SerializeField, Range(3, 64)] private int smoothnessMultiplier = 16;
+    private int Smoothness => Mathf.Clamp(Mathf.CeilToInt(angle / 360f * smoothnessMultiplier), 3, 64);
 
     private float _lastRadius;
     private float _lastThickness;
@@ -20,11 +25,19 @@ public class Wall : MonoBehaviour
     private bool dirty = true;
     private Mesh mesh;
 
+    [SerializeField] private Transform parent; // the parent transform to rotate around
+
+    public float rotationSpeed = 180;
+    private Quaternion rotation;
+
     void Awake()
     {
         mesh = new();
         meshFilter = GetComponent<MeshFilter>();
         polyCollider = GetComponent<PolygonCollider2D>();
+        parent = transform.parent;
+        // temp for testing
+        ProjectilePool.SpawnProjectile<Projectiles.Balls.BasicBall>(Vector2.zero, Vector2.right * 5f);
     }
 
     void Update()
@@ -42,16 +55,28 @@ public class Wall : MonoBehaviour
             Rebuild();
             dirty = false;
         }
+        Quaternion targetRotation = parent.rotation;
+
+        // Smoothly rotate this object towards parent's rotation
+        rotation = Quaternion.RotateTowards(
+            rotation,
+            targetRotation,
+            rotationSpeed * Time.deltaTime
+        );
+
+        transform.rotation = rotation;
+
+        WallUpdate();
     }
 
     void Rebuild()
     {
-        int pointsCount = smoothness + 1;
+        int pointsCount = Smoothness + 1;
         Vector2[] outerArc = new Vector2[pointsCount];
         Vector2[] innerArc = new Vector2[pointsCount];
 
         float startAngle = -angle * 0.5f;
-        float step = angle / smoothness;
+        float step = angle / Smoothness;
 
         for (int i = 0; i < pointsCount; i++)
         {
@@ -62,29 +87,120 @@ public class Wall : MonoBehaviour
             innerArc[pointsCount - 1 - i] = dir * (radius - thickness);
         }
 
-        // Combine arcs into polygon points
         Vector2[] colliderPoints = new Vector2[outerArc.Length + innerArc.Length];
         outerArc.CopyTo(colliderPoints, 0);
         innerArc.CopyTo(colliderPoints, outerArc.Length);
 
+        colliderPoints = RemoveDuplicatePoints(colliderPoints);
+
+        // Ensure CCW winding
+        if (!IsCCW(colliderPoints))
+            System.Array.Reverse(colliderPoints);
+
         polyCollider.pathCount = 1;
         polyCollider.SetPath(0, colliderPoints);
 
-        // Generate mesh
         Vector3[] vertices = new Vector3[colliderPoints.Length];
         for (int i = 0; i < colliderPoints.Length; i++)
             vertices[i] = colliderPoints[i];
 
-        // Triangulate polygon
         Triangulator triangulator = new(colliderPoints);
         int[] triangles = triangulator.Triangulate();
 
-        mesh.vertices = vertices;
-        mesh.triangles = triangles;
-        mesh.RecalculateNormals();
-        mesh.RecalculateBounds();
+        bool validTriangles = triangles.Length >= 3;
+        for (int i = 0; i < triangles.Length; i++)
+        {
+            if (triangles[i] < 0 || triangles[i] >= vertices.Length)
+            {
+                validTriangles = false;
+                Debug.LogError($"Invalid triangle index {triangles[i]} for vertices length {vertices.Length}");
+                break;
+            }
+        }
 
-        meshFilter.sharedMesh = mesh;
+        if (vertices.Length >= 3 && validTriangles)
+        {
+            mesh.Clear();
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            meshFilter.sharedMesh = mesh; // Reassign updated mesh
+        }
+        else
+        {
+            meshFilter.sharedMesh = null;
+            Debug.LogWarning("Mesh not assigned: invalid vertices or triangles.");
+        }
+    }
+
+    // Utility to remove all duplicate points
+    Vector2[] RemoveDuplicatePoints(Vector2[] points)
+    {
+        var unique = new System.Collections.Generic.List<Vector2>();
+        foreach (var pt in points)
+        {
+            bool found = false;
+            foreach (var u in unique)
+            {
+                if ((pt - u).sqrMagnitude < 1e-6f)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                unique.Add(pt);
+        }
+        return unique.ToArray();
+    }
+
+    // Utility to check CCW winding
+    bool IsCCW(Vector2[] points)
+    {
+        float sum = 0f;
+        for (int i = 0; i < points.Length; i++)
+        {
+            Vector2 a = points[i];
+            Vector2 b = points[(i + 1) % points.Length];
+            sum += (b.x - a.x) * (b.y + a.y);
+        }
+        return sum < 0f;
+    }
+
+    // ------------ wall logic & stuff ------------
+
+    private WallBase _wallBase;
+
+    public WallBase WallLogic
+    {
+        get => _wallBase;
+        set
+        {
+            _wallBase = value;
+            _wallBase.wallComp = this;
+        }
+    }
+
+    private void WallUpdate()
+    {
+        WallLogic?.OnUpdate();
+    }
+
+    public void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (collision.collider.TryGetComponent(out Player player))
+        {
+            _wallBase?.OnPlayerCollision(player);
+        }
+        else if (collision.collider.TryGetComponent(out Wall wall))
+        {
+            _wallBase?.OnWallCollision(wall);
+        }
+        else if (collision.collider.TryGetComponent(out Projectile projectile))
+        {
+            _wallBase?.OnProjectileCollision(projectile);
+        }
     }
 }
 

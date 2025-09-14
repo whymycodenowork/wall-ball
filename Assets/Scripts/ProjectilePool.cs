@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public static class ProjectilePool
@@ -18,26 +19,37 @@ public static class ProjectilePool
     /// <typeparam name="T">The type of the projectile.</typeparam>
     /// <param name="pos">Where to spawn the projectile.</param>
     /// <param name="vel">The velocity of the projectile.</param>
-    public static void SpawnProjectile<T> (Vector2 pos, Vector2 vel) where T : Projectile
+    public static Projectile SpawnProjectile<T>(Vector2 pos, Vector2 vel) where T : ProjectileBase
     {
-        if (activeProjectiles.Count > 0)
+        if (inactiveProjectiles.Count > 0)
         {
             Projectile proj = inactiveProjectiles.Pop();
-            proj.transform.position = pos;
-            proj.velocity = vel;
-            RemoveAllComponents(proj.gameObject);
-            proj = proj.gameObject.AddComponent<T>();
+            proj.transform.position = pos; // set position
+            proj.velocity = vel; // set velocity
+            proj.gameObject.transform.localScale = Vector3.one * proj.Proj.Size; // set size
+            proj.Proj = System.Activator.CreateInstance<T>(); // assign new instance of T
+            SpriteRenderer spr = proj.GetComponent<SpriteRenderer>(); // get sprite renderer
             proj.gameObject.SetActive(true);
+            proj.Proj.Init(); // initialize the projectile
             _ = activeProjectiles.Add(proj);
+            return proj;
         }
         else
         {
             // Create a new projectile if none are available in the pool
             GameObject projObj = new(typeof(T).Name);
-            projObj.transform.position = pos;
-            T proj = projObj.AddComponent<T>();
-            proj.velocity = vel;
+            projObj.transform.position = pos; // set position
+            Projectile proj = projObj.AddComponent<Projectile>(); // add Projectile component
+            proj.velocity = vel; // set velocity
+            proj.gameObject.transform.localScale = Vector3.one * proj.Proj.Size; // set size
+            proj.Proj = System.Activator.CreateInstance<T>(); // assign new instance of T
+            proj.Proj.Init(); // initialize the projectile
+            CircleCollider2D c = projObj.AddComponent<CircleCollider2D>(); // add collider
+            SpriteRenderer spr = proj.AddComponent<SpriteRenderer>(); // add sprite renderer
+            // TODO: add sprites and stuff
+            c.isTrigger = false;
             _ = activeProjectiles.Add(proj);
+            return proj;
         }
     }
 
@@ -53,22 +65,4 @@ public static class ProjectilePool
             Debug.LogWarning("Attempted to deactivate a projectile that is not active.");
         }
     }
-
-    /// <summary>
-    /// Removes all components from a GameObject except for the Transform component.
-    /// </summary>
-    /// <param name="obj"></param>
-    public static void RemoveAllComponents(GameObject obj)
-    {
-        Component[] comps = obj.GetComponents<Component>();
-
-        foreach (Component comp in comps)
-        {
-            if (comp is not Transform) // don’t destroy Transform
-            {
-                Object.Destroy(comp);
-            }
-        }
-    }
-
 }

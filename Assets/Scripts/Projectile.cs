@@ -1,103 +1,56 @@
 using UnityEngine;
 
-public abstract class Projectile : MonoBehaviour
+/// <summary>
+/// wrapper class for projectiles to be pooled
+/// </summary>
+public class Projectile : MonoBehaviour
 {
-    /// <summary>
-    /// The velocity of the projectile in units per second
-    /// </summary>
-    public Vector2 velocity;
-
-    /// <summary>
-    /// How long the projectile lasts (in seconds) before disappearing
-    /// </summary>
-    public virtual float Lifetime { get; } = 5f;
-
-    /// <summary>
-    /// How much the projectile slows down over time
-    /// </summary>
-    /// <remarks>
-    /// 1 means no drag, and 0 means it can't move. Please don't set it to 0.
-    /// </remarks>
-    public virtual float Drag { get; } = 0.98f;
-
-    public float lifeTimer;
-
-    protected virtual void Start()
+    private ProjectileBase _proj;
+    public ProjectileBase Proj
     {
-        lifeTimer = Lifetime;
+        get => _proj;
+        set
+        {
+            _proj = value;
+            _proj.projComp = this;
+        }
     }
+
+    public Vector2 velocity;
 
     protected void Update() // not for overriding
     {
-        lifeTimer -= Time.deltaTime;
-        if (lifeTimer <= 0)
+        Proj.lifeTimer -= Time.deltaTime;
+        if (Proj.lifeTimer <= 0 && Proj.exists)
         {
-            DestroyProjectile();
-            OnExpire();
+            Proj.DestroyProjectile();
+            Proj.OnExpire();
         }
         // Apply drag
-        velocity *= Drag;
+        velocity *= Proj.Drag;
         // Move the projectile
         transform.position += (Vector3)(velocity * Time.deltaTime);
-        OnUpdate();
+        Proj.OnUpdate();
     }
 
-    // For subclasses to override
-    protected virtual void OnUpdate()
+    private void OnCollisionEnter2D(Collision2D collision)
     {
-        // Does nothing unless overridden
-    }
-
-    /// <summary>
-    /// Call to destroy the projectile
-    /// </summary>
-    public void DestroyProjectile()
-    {
-        ProjectilePool.DespawnProjectile(this); // Return to pool
-    }
-
-    /// <summary>
-    /// Called when the projectile expires or is destroyed
-    /// </summary>
-    protected virtual void OnExpire()
-    {
-        // Does nothing unless overridden
-    }
-
-    protected void OnCollisionEnter2D(Collision2D collision)
-    {
-        if (collision.collider.TryGetComponent<Projectile>(out Projectile projectile))
+        if (collision.collider.TryGetComponent(out Projectile projectile))
         {
-            OnProjectileCollision(projectile);
+            Proj.OnProjectileCollision(projectile);
         }
-        else if (collision.collider.TryGetComponent<Wall>(out Wall wall))
+        else if (collision.collider.TryGetComponent(out Wall wall))
         {
-            OnWallCollision(wall);
+            Proj.OnWallCollision(wall);
         }
-        else if (collision.collider.TryGetComponent<Player>(out Player player))
+        else if (collision.collider.TryGetComponent(out Player player))
         {
-            OnPlayerCollision(player);
+            Proj.OnPlayerCollision(player);
         }
         else
         {
             // Unknown collision, just destroy the projectile
-            DestroyProjectile();
+            Proj.DestroyProjectile();
         }
-    }
-
-    protected virtual void OnWallCollision(Wall wall)
-    {
-        // Does nothing unless overridden
-    }
-
-    protected virtual void OnProjectileCollision(Projectile projectile)
-    {
-        // Does nothing unless overridden
-        // Most projectiles will just pass through each other
-    }
-
-    protected virtual void OnPlayerCollision(Player player)
-    {
-        // usually destroy the projectile and damage the player
     }
 }
