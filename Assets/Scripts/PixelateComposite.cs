@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.UI;
 
 [ExecuteInEditMode]
 [RequireComponent(typeof(Camera))]
@@ -14,52 +13,74 @@ public class WallPixelateComposite : MonoBehaviour
 
     private RenderTexture wallRT;
 
-    void OnEnable()
+    private void OnEnable()
     {
         SetupRT();
     }
 
-    void OnDisable()
+    private void OnDisable()
     {
         if (wallRT != null)
         {
-            if (wallCamera != null) wallCamera.targetTexture = null;
+            if (wallCamera != null)
+            {
+                wallCamera.targetTexture = null;
+            }
+
             wallRT.Release();
             DestroyImmediate(wallRT);
             wallRT = null;
         }
     }
 
-    void SetupRT()
+    private void SetupRT()
     {
-        if (wallCamera == null) return;
-        if (wallRT != null) return;
-        if (Screen.width <= 0 || Screen.height <= 0) return; // Prevent zero-size RT
+        if (wallCamera == null)
+        {
+            return;
+        }
+
+        if (wallRT != null)
+        {
+            return;
+        }
+
+        if (Screen.width <= 0 || Screen.height <= 0)
+        {
+            return; // Prevent zero-size RT
+        }
+
         wallRT = new RenderTexture(Screen.width, Screen.height, 16, RenderTextureFormat.ARGB32);
-        wallRT.Create();
+        _ = wallRT.Create();
         wallCamera.targetTexture = wallRT;
     }
 
-    void Update()
+    private void Update()
     {
-        if (Screen.width <= 0 || Screen.height <= 0) return; // Prevent zero-size RT
+        if (Screen.width <= 0 || Screen.height <= 0)
+        {
+            return; // Prevent zero-size RT
+        }
 
         if (wallRT == null || wallRT.width != Screen.width || wallRT.height != Screen.height)
         {
-            if (wallRT != null) { if (wallCamera != null) wallCamera.targetTexture = null; wallRT.Release(); DestroyImmediate(wallRT); }
+            if (wallRT != null) { if (wallCamera != null) { wallCamera.targetTexture = null; } wallRT.Release(); DestroyImmediate(wallRT); }
             if (wallCamera != null)
             {
                 wallRT = new RenderTexture(Screen.width, Screen.height, 16, RenderTextureFormat.ARGB32);
-                wallRT.Create();
+                _ = wallRT.Create();
                 wallCamera.targetTexture = wallRT;
             }
         }
 
-        if (pixelateMaterial != null) pixelateMaterial.SetFloat("_PixelSize", pixelSize);
+        if (pixelateMaterial != null)
+        {
+            pixelateMaterial.SetFloat("_PixelSize", pixelSize);
+        }
     }
 
     // This runs on the main camera as a final image effect. It composites the pixelated walls over the main scene.
-    void OnRenderImage(RenderTexture src, RenderTexture dest)
+    private void OnRenderImage(RenderTexture src, RenderTexture dest)
     {
         if (wallRT == null || pixelateMaterial == null || compositeMaterial == null)
         {
@@ -76,7 +97,7 @@ public class WallPixelateComposite : MonoBehaviour
 
         // composite scene (src) with overlay and output to dest
         Graphics.Blit(src, dest, compositeMaterial);
-        
+
         RenderTexture.ReleaseTemporary(tmp);
     }
 }

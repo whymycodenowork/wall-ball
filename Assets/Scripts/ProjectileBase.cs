@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 public abstract class ProjectileBase
@@ -49,9 +48,22 @@ public abstract class ProjectileBase
     /// </summary>
     public float Age => Lifetime - lifeTimer;
 
-    public Vector2 Velocity => projComp.velocity;
+    public Vector2 Velocity
+    {
+        get => projComp.velocity;
+        set => projComp.velocity = value;
+    }
 
     public Projectile projComp;
+
+    /// <summary>
+    /// shorthand for getting the gameObject that this projectile is attached to
+    /// </summary>
+    public GameObject AttachedObject
+    {
+        get => projComp.gameObject;
+    }
+
 
     public virtual void Init()
     {

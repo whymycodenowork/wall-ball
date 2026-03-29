@@ -1,5 +1,3 @@
-using UnityEngine;
-
 /// <summary>
 /// Base class for wall objects.
 /// </summary>

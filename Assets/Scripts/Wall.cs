@@ -19,28 +19,28 @@ public class Wall : MonoBehaviour
     private float _lastRadius;
     private float _lastThickness;
     private float _lastAngle;
+    public float lastAngle;
 
     private MeshFilter meshFilter;
     private PolygonCollider2D polyCollider;
     private bool dirty = true;
     private Mesh mesh;
 
-    [SerializeField] private Transform parent; // the parent transform to rotate around
+    public Transform parent; // the parent transform to rotate around
+    public Player player; // the player this wall belongs to
 
     public float rotationSpeed = 180;
     private Quaternion rotation;
 
-    void Awake()
+    private void Awake()
     {
         mesh = new();
         meshFilter = GetComponent<MeshFilter>();
         polyCollider = GetComponent<PolygonCollider2D>();
         parent = transform.parent;
-        // temp for testing
-        ProjectilePool.SpawnProjectile<Projectiles.Balls.BasicBall>(Vector2.zero, Vector2.right * 5f);
     }
 
-    void Update()
+    private void Update()
     {
         if (radius != _lastRadius || thickness != _lastThickness || angle != _lastAngle)
         {
@@ -67,9 +67,23 @@ public class Wall : MonoBehaviour
         transform.rotation = rotation;
 
         WallUpdate();
+
+        // TODO: add obstacles and a border. not in this file
+
+        if (Input.GetKeyDown(KeyCode.B))
+        {
+            // temp for testing
+            _ = ProjectilePool.SpawnProjectile<Projectiles.Balls.BasicBall>(Vector2.left * 5, Vector2.right * 5f);
+        }
     }
 
-    void Rebuild()
+    private void LateUpdate()
+    {
+        float currentAngle = Mathf.Atan2(transform.up.y, transform.up.x);
+        lastAngle = currentAngle;
+    }
+
+    private void Rebuild()
     {
         int pointsCount = Smoothness + 1;
         Vector2[] outerArc = new Vector2[pointsCount];
@@ -80,7 +94,7 @@ public class Wall : MonoBehaviour
 
         for (int i = 0; i < pointsCount; i++)
         {
-            float a = (startAngle + step * i) * Mathf.Deg2Rad;
+            float a = (startAngle + (step * i)) * Mathf.Deg2Rad;
             Vector2 dir = new(Mathf.Cos(a), Mathf.Sin(a));
 
             outerArc[i] = dir * radius;
@@ -95,14 +109,18 @@ public class Wall : MonoBehaviour
 
         // Ensure CCW winding
         if (!IsCCW(colliderPoints))
+        {
             System.Array.Reverse(colliderPoints);
+        }
 
         polyCollider.pathCount = 1;
         polyCollider.SetPath(0, colliderPoints);
 
         Vector3[] vertices = new Vector3[colliderPoints.Length];
         for (int i = 0; i < colliderPoints.Length; i++)
+        {
             vertices[i] = colliderPoints[i];
+        }
 
         Triangulator triangulator = new(colliderPoints);
         int[] triangles = triangulator.Triangulate();
@@ -135,13 +153,13 @@ public class Wall : MonoBehaviour
     }
 
     // Utility to remove all duplicate points
-    Vector2[] RemoveDuplicatePoints(Vector2[] points)
+    private Vector2[] RemoveDuplicatePoints(Vector2[] points)
     {
-        var unique = new System.Collections.Generic.List<Vector2>();
-        foreach (var pt in points)
+        System.Collections.Generic.List<Vector2> unique = new();
+        foreach (Vector2 pt in points)
         {
             bool found = false;
-            foreach (var u in unique)
+            foreach (Vector2 u in unique)
             {
                 if ((pt - u).sqrMagnitude < 1e-6f)
                 {
@@ -150,13 +168,15 @@ public class Wall : MonoBehaviour
                 }
             }
             if (!found)
+            {
                 unique.Add(pt);
+            }
         }
         return unique.ToArray();
     }
 
     // Utility to check CCW winding
-    bool IsCCW(Vector2[] points)
+    private bool IsCCW(Vector2[] points)
     {
         float sum = 0f;
         for (int i = 0; i < points.Length; i++)
@@ -170,8 +190,14 @@ public class Wall : MonoBehaviour
 
     // ------------ wall logic & stuff ------------
 
+    /// <summary>
+    /// idk why i need this but i'm keeping it in case it breaks something if i remove it
+    /// </summary>
     private WallBase _wallBase;
 
+    /// <summary>
+    /// an instance of the class that contains the logic for this wall
+    /// </summary>
     public WallBase WallLogic
     {
         get => _wallBase;
@@ -182,8 +208,12 @@ public class Wall : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// update
+    /// </summary>
     private void WallUpdate()
     {
+        // update the wall logic
         WallLogic?.OnUpdate();
     }
 
@@ -207,6 +237,9 @@ public class Wall : MonoBehaviour
 /// <summary>
 /// Simple polygon triangulator (ear clipping).
 /// </summary>
+/// <remarks>
+/// I wouldn't call it simple as I have no idea how this thing works.
+/// </remarks>
 public class Triangulator
 {
     private readonly Vector2[] m_points;
@@ -218,30 +251,63 @@ public class Triangulator
 
     public int[] Triangulate()
     {
-        var indices = new System.Collections.Generic.List<int>();
+        System.Collections.Generic.List<int> indices = new();
 
         int n = m_points.Length;
-        if (n < 3) return indices.ToArray();
+        if (n < 3)
+        {
+            return indices.ToArray();
+        }
 
         int[] V = new int[n];
-        if (Area() > 0) { for (int v = 0; v < n; v++) V[v] = v; }
-        else { for (int v = 0; v < n; v++) V[v] = (n - 1) - v; }
+        if (Area() > 0)
+        {
+            for (int v = 0; v < n; v++)
+            {
+                V[v] = v;
+            }
+        }
+        else
+        {
+            for (int v = 0; v < n; v++)
+            {
+                V[v] = n - 1 - v;
+            }
+        }
 
         int nv = n;
         int count = 2 * nv;
         for (int v = nv - 1; nv > 2;)
         {
-            if ((count--) <= 0) break;
+            if (count-- <= 0)
+            {
+                break;
+            }
 
-            int u = v; if (nv <= u) u = 0;
-            v = u + 1; if (nv <= v) v = 0;
-            int w = v + 1; if (nv <= w) w = 0;
+            int u = v; if (nv <= u)
+            {
+                u = 0;
+            }
+
+            v = u + 1; if (nv <= v)
+            {
+                v = 0;
+            }
+
+            int w = v + 1; if (nv <= w)
+            {
+                w = 0;
+            }
 
             if (Snip(u, v, w, nv, V))
             {
                 int a = V[u], b = V[v], c = V[w];
                 indices.Add(a); indices.Add(b); indices.Add(c);
-                for (int s = v, t = v + 1; t < nv; s++, t++) V[s] = V[t];
+                for (int s = v, t = v + 1; t < nv; s++, t++)
+                {
+                    V[s] = V[t];
+                }
+
                 nv--;
                 count = 2 * nv;
             }
@@ -255,7 +321,10 @@ public class Triangulator
         int n = m_points.Length;
         float A = 0;
         for (int p = n - 1, q = 0; q < n; p = q++)
+        {
             A += (m_points[p].x * m_points[q].y) - (m_points[q].x * m_points[p].y);
+        }
+
         return A * 0.5f;
     }
 
@@ -264,12 +333,23 @@ public class Triangulator
         Vector2 A = m_points[V[u]];
         Vector2 B = m_points[V[v]];
         Vector2 C = m_points[V[w]];
-        if (Mathf.Epsilon > (((B.x - A.x) * (C.y - A.y)) - ((B.y - A.y) * (C.x - A.x)))) return false;
+        if (Mathf.Epsilon > (((B.x - A.x) * (C.y - A.y)) - ((B.y - A.y) * (C.x - A.x))))
+        {
+            return false;
+        }
+
         for (int p = 0; p < n; p++)
         {
-            if ((p == u) || (p == v) || (p == w)) continue;
+            if ((p == u) || (p == v) || (p == w))
+            {
+                continue;
+            }
+
             Vector2 P = m_points[V[p]];
-            if (InsideTriangle(A, B, C, P)) return false;
+            if (InsideTriangle(A, B, C, P))
+            {
+                return false;
+            }
         }
         return true;
     }
@@ -283,10 +363,10 @@ public class Triangulator
         float bpx = P.x - B.x, bpy = P.y - B.y;
         float cpx = P.x - C.x, cpy = P.y - C.y;
 
-        float aCROSSbp = ax * bpy - ay * bpx;
-        float cCROSSap = cx * apy - cy * apx;
-        float bCROSScp = bx * cpy - by * cpx;
+        float aCROSSbp = (ax * bpy) - (ay * bpx);
+        float cCROSSap = (cx * apy) - (cy * apx);
+        float bCROSScp = (bx * cpy) - (by * cpx);
 
-        return ((aCROSSbp >= 0) && (bCROSScp >= 0) && (cCROSSap >= 0));
+        return (aCROSSbp >= 0) && (bCROSScp >= 0) && (cCROSSap >= 0);
     }
 }

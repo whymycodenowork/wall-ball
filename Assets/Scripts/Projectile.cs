@@ -6,6 +6,10 @@ using UnityEngine;
 public class Projectile : MonoBehaviour
 {
     private ProjectileBase _proj;
+
+    /// <summary>
+    /// an instance of the class that contains the logic for the projectile
+    /// </summary>
     public ProjectileBase Proj
     {
         get => _proj;
@@ -16,6 +20,9 @@ public class Projectile : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// the Velocity value belongs to this now because for some reason i have to or else everything breaks
+    /// </summary>
     public Vector2 velocity;
 
     protected void Update() // not for overriding
@@ -25,31 +32,33 @@ public class Projectile : MonoBehaviour
         {
             Proj.DestroyProjectile();
             Proj.OnExpire();
+            return;
         }
         // Apply drag
-        velocity *= Proj.Drag;
+        velocity *= Mathf.Pow(Proj.Drag, Time.deltaTime);
         // Move the projectile
         transform.position += (Vector3)(velocity * Time.deltaTime);
         Proj.OnUpdate();
     }
 
-    private void OnCollisionEnter2D(Collision2D collision)
+    private void OnTriggerEnter2D(Collider2D collider)
     {
-        if (collision.collider.TryGetComponent(out Projectile projectile))
+        Debug.Log("bonk"); // bonk for debug
+        if (collider.TryGetComponent(out Projectile projectile))
         {
             Proj.OnProjectileCollision(projectile);
         }
-        else if (collision.collider.TryGetComponent(out Wall wall))
+        else if (collider.TryGetComponent(out Wall wall))
         {
             Proj.OnWallCollision(wall);
         }
-        else if (collision.collider.TryGetComponent(out Player player))
+        else if (collider.TryGetComponent(out Player player))
         {
             Proj.OnPlayerCollision(player);
         }
         else
         {
-            // Unknown collision, just destroy the projectile
+            // Unknown collider, just destroy the projectile
             Proj.DestroyProjectile();
         }
     }
