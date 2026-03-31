@@ -2,13 +2,13 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-    public Vector2 velocity;
-
+    public Rigidbody2D rb;
+    
     public float acceleration = 50f; // how fast the player speeds up
     public float deceleration = 60f; // how fast the player slows down when no input
     public float maxSpeed = 5f;      // maximum movement speed
 
-    private void Update()
+    private void FixedUpdate()
     {
         // Read input
         Vector2 input = new(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
@@ -20,33 +20,33 @@ public class Player : MonoBehaviour
         // Apply acceleration if there is input
         if (input != Vector2.zero)
         {
-            velocity += input * acceleration * Time.deltaTime;
+            rb.linearVelocity += input * (acceleration * Time.deltaTime);
         }
         else
         {
             // Apply deceleration when no input
-            float speed = velocity.magnitude;
+            float speed = rb.linearVelocity.magnitude;
             speed -= deceleration * Time.deltaTime;
             speed = Mathf.Max(speed, 0); // don't go negative
-            if (velocity != Vector2.zero)
+            if (rb.linearVelocity != Vector2.zero)
             {
-                velocity = velocity.normalized * speed;
+                rb.linearVelocity = rb.linearVelocity.normalized * speed;
             }
         }
 
         // Clamp to max speed
-        if (velocity.magnitude > maxSpeed)
+        if (rb.linearVelocity.magnitude > maxSpeed)
         {
-            velocity = velocity.normalized * maxSpeed;
+            rb.linearVelocity = rb.linearVelocity.normalized * maxSpeed;
         }
 
-        // Move the player
-        transform.Translate(velocity * Time.deltaTime, Space.World);
-
         // Rotate to face mouse
-        Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        Vector2 direction = (mousePos - transform.position).normalized;
-        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-        transform.rotation = Quaternion.Euler(0, 0, angle);
+        if (Camera.main != null)
+        {
+            Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            Vector2 direction = (mousePos - transform.position).normalized;
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            transform.rotation = Quaternion.Euler(0, 0, angle);
+        }
     }
 }

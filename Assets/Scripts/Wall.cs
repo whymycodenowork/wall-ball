@@ -9,8 +9,7 @@ using UnityEngine;
 public class Wall : MonoBehaviour
 {
     // ------------ unity stuff ------------
-    [Header("Arc Settings")]
-    [Min(0.01f)] public float radius = 2f;
+    [Header("Arc Settings")] [Min(0.01f)] public float radius = 2f;
     [Min(0.01f)] public float thickness = 0.5f;
     [Range(10f, 359f)] public float angle = 90f;
     [SerializeField, Range(3, 64)] private int smoothnessMultiplier = 16;
@@ -21,50 +20,51 @@ public class Wall : MonoBehaviour
     private float _lastAngle;
     public float lastAngle;
 
-    private MeshFilter meshFilter;
-    private PolygonCollider2D polyCollider;
-    private bool dirty = true;
-    private Mesh mesh;
+    private MeshFilter _meshFilter;
+    private PolygonCollider2D _polyCollider;
+    private bool _dirty = true;
+    private Mesh _mesh;
 
     public Transform parent; // the parent transform to rotate around
     public Player player; // the player this wall belongs to
 
     public float rotationSpeed = 180;
-    private Quaternion rotation;
+    private Quaternion _rotation;
 
     private void Awake()
     {
-        mesh = new();
-        meshFilter = GetComponent<MeshFilter>();
-        polyCollider = GetComponent<PolygonCollider2D>();
+        _mesh = new();
+        _meshFilter = GetComponent<MeshFilter>();
+        _polyCollider = GetComponent<PolygonCollider2D>();
         parent = transform.parent;
     }
 
     private void Update()
     {
-        if (radius != _lastRadius || thickness != _lastThickness || angle != _lastAngle)
+        if (!Mathf.Approximately(radius, _lastRadius) || !Mathf.Approximately(thickness, _lastThickness) || !Mathf.Approximately(angle, _lastAngle))
         {
             _lastRadius = radius;
             _lastThickness = thickness;
             _lastAngle = angle;
-            dirty = true;
+            _dirty = true;
         }
 
-        if (dirty)
+        if (_dirty)
         {
             Rebuild();
-            dirty = false;
+            _dirty = false;
         }
+
         Quaternion targetRotation = parent.rotation;
 
         // Smoothly rotate this object towards parent's rotation
-        rotation = Quaternion.RotateTowards(
-            rotation,
+        _rotation = Quaternion.RotateTowards(
+            _rotation,
             targetRotation,
             rotationSpeed * Time.deltaTime
         );
 
-        transform.rotation = rotation;
+        transform.rotation = _rotation;
 
         WallUpdate();
 
@@ -113,8 +113,8 @@ public class Wall : MonoBehaviour
             System.Array.Reverse(colliderPoints);
         }
 
-        polyCollider.pathCount = 1;
-        polyCollider.SetPath(0, colliderPoints);
+        _polyCollider.pathCount = 1;
+        _polyCollider.SetPath(0, colliderPoints);
 
         Vector3[] vertices = new Vector3[colliderPoints.Length];
         for (int i = 0; i < colliderPoints.Length; i++)
@@ -126,28 +126,28 @@ public class Wall : MonoBehaviour
         int[] triangles = triangulator.Triangulate();
 
         bool validTriangles = triangles.Length >= 3;
-        for (int i = 0; i < triangles.Length; i++)
+        foreach (int t in triangles)
         {
-            if (triangles[i] < 0 || triangles[i] >= vertices.Length)
+            if (t < 0 || t >= vertices.Length)
             {
                 validTriangles = false;
-                Debug.LogError($"Invalid triangle index {triangles[i]} for vertices length {vertices.Length}");
+                Debug.LogError($"Invalid triangle index {t} for vertices length {vertices.Length}");
                 break;
             }
         }
 
         if (vertices.Length >= 3 && validTriangles)
         {
-            mesh.Clear();
-            mesh.vertices = vertices;
-            mesh.triangles = triangles;
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-            meshFilter.sharedMesh = mesh; // Reassign updated mesh
+            _mesh.Clear();
+            _mesh.vertices = vertices;
+            _mesh.triangles = triangles;
+            _mesh.RecalculateNormals();
+            _mesh.RecalculateBounds();
+            _meshFilter.sharedMesh = _mesh; // Reassign updated mesh
         }
         else
         {
-            meshFilter.sharedMesh = null;
+            _meshFilter.sharedMesh = null;
             Debug.LogWarning("Mesh not assigned: invalid vertices or triangles.");
         }
     }
@@ -167,16 +167,19 @@ public class Wall : MonoBehaviour
                     break;
                 }
             }
+
             if (!found)
             {
                 unique.Add(pt);
             }
         }
+
         return unique.ToArray();
     }
 
     // Utility to check CCW winding
-    private bool IsCCW(Vector2[] points)
+    // ReSharper disable once InconsistentNaming
+    private static bool IsCCW(Vector2[] points)
     {
         float sum = 0f;
         for (int i = 0; i < points.Length; i++)
@@ -185,13 +188,14 @@ public class Wall : MonoBehaviour
             Vector2 b = points[(i + 1) % points.Length];
             sum += (b.x - a.x) * (b.y + a.y);
         }
+
         return sum < 0f;
     }
 
     // ------------ wall logic & stuff ------------
 
     /// <summary>
-    /// idk why i need this but i'm keeping it in case it breaks something if i remove it
+    /// idk why I need this, but I'm keeping it in case it breaks something if I remove it
     /// </summary>
     private WallBase _wallBase;
 
@@ -219,9 +223,9 @@ public class Wall : MonoBehaviour
 
     public void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.collider.TryGetComponent(out Player player))
+        if (collision.collider.TryGetComponent(out Player collidedPlayer))
         {
-            _wallBase?.OnPlayerCollision(player);
+            _wallBase?.OnPlayerCollision(collidedPlayer);
         }
         else if (collision.collider.TryGetComponent(out Wall wall))
         {
@@ -284,17 +288,20 @@ public class Triangulator
                 break;
             }
 
-            int u = v; if (nv <= u)
+            int u = v;
+            if (nv <= u)
             {
                 u = 0;
             }
 
-            v = u + 1; if (nv <= v)
+            v = u + 1;
+            if (nv <= v)
             {
                 v = 0;
             }
 
-            int w = v + 1; if (nv <= w)
+            int w = v + 1;
+            if (nv <= w)
             {
                 w = 0;
             }
@@ -302,7 +309,9 @@ public class Triangulator
             if (Snip(u, v, w, nv, V))
             {
                 int a = V[u], b = V[v], c = V[w];
-                indices.Add(a); indices.Add(b); indices.Add(c);
+                indices.Add(a);
+                indices.Add(b);
+                indices.Add(c);
                 for (int s = v, t = v + 1; t < nv; s++, t++)
                 {
                     V[s] = V[t];
@@ -351,6 +360,7 @@ public class Triangulator
                 return false;
             }
         }
+
         return true;
     }
 

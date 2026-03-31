@@ -6,14 +6,17 @@ public abstract class ProjectileBase
     /// How much damage the projectile does on hit
     /// </summary>
     public virtual float Damage { get; } = 0f;
+
     /// <summary>
     /// How much armor the projectile ignores
     /// </summary>
     public virtual float ArmorPenetration { get; } = 0f;
+
     /// <summary>
     /// How fast the projectile moves
     /// </summary>
     public virtual float Speed { get; } = 5f;
+
     /// <summary>
     /// The size of the projectile.
     /// </summary>
@@ -21,6 +24,7 @@ public abstract class ProjectileBase
     /// The scale of the <see cref="Transform"/> of the <see cref="GameObject"/>. This affects both visual size and collider size.
     /// </remarks>
     public virtual float Size { get; } = 1f;
+
     /// <summary>
     /// How long the projectile lasts (in seconds) before disappearing
     /// </summary>
@@ -50,8 +54,8 @@ public abstract class ProjectileBase
 
     public Vector2 Velocity
     {
-        get => projComp.velocity;
-        set => projComp.velocity = value;
+        get => projComp.Velocity;
+        set => projComp.Velocity = value;
     }
 
     public Projectile projComp;
@@ -59,12 +63,14 @@ public abstract class ProjectileBase
     /// <summary>
     /// shorthand for getting the gameObject that this projectile is attached to
     /// </summary>
-    public GameObject AttachedObject
-    {
-        get => projComp.gameObject;
-    }
+    public GameObject AttachedObject => projComp.gameObject;
 
-
+    /// <summary>
+    /// called when the projectile is created
+    /// </summary>
+    /// <remarks>
+    /// please call base.Init() if overridden
+    /// </remarks>
     public virtual void Init()
     {
         lifeTimer = Lifetime;
@@ -111,5 +117,23 @@ public abstract class ProjectileBase
     public virtual void OnPlayerCollision(Player player)
     {
         // usually destroy the projectile and damage the player
+    }
+
+    /// <summary>
+    /// Called when the projectile collides with an obstacle
+    /// </summary>
+    /// <param name="collision"></param>
+    public virtual void OnObstacleCollision(Collision2D collision)
+    {
+        // usually stop, get destroyed, or bounce off of it.
+    }
+
+    /// <summary>
+    /// Called when the projectile collides with something other than a player, wall, or other projectile.
+    /// </summary>
+    /// <param name="collision"></param>
+    public virtual void OnOtherCollision(Collision2D collision)
+    {
+        // usually get destroyed or bounce off of it
     }
 }

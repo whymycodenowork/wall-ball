@@ -1,7 +1,8 @@
+using JetBrains.Annotations;
 using UnityEngine;
 
 /// <summary>
-/// wrapper class for projectiles to be pooled
+/// wrapper MonoBehaviour for projectiles
 /// </summary>
 public class Projectile : MonoBehaviour
 {
@@ -21,9 +22,18 @@ public class Projectile : MonoBehaviour
     }
 
     /// <summary>
-    /// the Velocity value belongs to this now because for some reason i have to or else everything breaks
+    /// reference to the rigidbody of the projectile this is attached to
     /// </summary>
-    public Vector2 velocity;
+    public Rigidbody2D rb;
+
+    /// <summary>
+    /// the Velocity value belongs to this now because for some reason I have to or else everything breaks
+    /// </summary>
+    public Vector2 Velocity
+    {
+        get => rb.linearVelocity;
+        set => rb.linearVelocity = value;
+    }
 
     protected void Update() // not for overriding
     {
@@ -35,31 +45,33 @@ public class Projectile : MonoBehaviour
             return;
         }
         // Apply drag
-        velocity *= Mathf.Pow(Proj.Drag, Time.deltaTime);
+        Velocity *= Mathf.Pow(Proj.Drag, Time.deltaTime);
         // Move the projectile
-        transform.position += (Vector3)(velocity * Time.deltaTime);
+        transform.position += (Vector3)(Velocity * Time.deltaTime);
         Proj.OnUpdate();
     }
 
-    private void OnTriggerEnter2D(Collider2D collider)
+    private void OnTriggerEnter2D([NotNull] Collider2D collidedCollider)
     {
-        Debug.Log("bonk"); // bonk for debug
-        if (collider.TryGetComponent(out Projectile projectile))
+        if (collidedCollider.TryGetComponent(out Projectile projectile))
         {
             Proj.OnProjectileCollision(projectile);
         }
-        else if (collider.TryGetComponent(out Wall wall))
+        else if (collidedCollider.TryGetComponent(out Wall wall))
         {
             Proj.OnWallCollision(wall);
         }
-        else if (collider.TryGetComponent(out Player player))
+        else if (collidedCollider.TryGetComponent(out Player player))
         {
             Proj.OnPlayerCollision(player);
         }
-        else
+    }
+
+    private void OnCollisionEnter2D(Collision2D other)
+    {
+        if (other.gameObject.CompareTag("Obstacle"))
         {
-            // Unknown collider, just destroy the projectile
-            Proj.DestroyProjectile();
+            
         }
     }
 }
